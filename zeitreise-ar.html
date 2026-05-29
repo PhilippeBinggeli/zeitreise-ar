@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zeitreise AR – Bern & Schwarzenburg</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --parchment: #f5e9c8;
+  --ink: #0e0a04;
+  --sepia-dark: #3d2b1f;
+  --sepia-mid: #7a5c3e;
+  --sepia-light: #c4a882;
+  --gold: #c9922a;
+  --gold-bright: #e8b84b;
+  --ash: #d4c9b4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--ink); font-family: 'EB Garamond', serif; color: var(--parchment); min-height: 100vh; overflow-x: hidden; }
+
+/* grain */
+body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; z-index:1000; opacity:0.35; }
+
+/* HEADER */
+header { text-align:center; padding:2.5rem 1.5rem 1.5rem; border-bottom:1px solid rgba(201,146,42,0.25); }
+.year-badge { display:inline-block; font-family:'Cinzel',serif; font-size:0.65rem; letter-spacing:0.35em; color:var(--gold); border:1px solid var(--gold); padding:0.25rem 1rem; margin-bottom:0.8rem; }
+h1 { font-family:'Cinzel',serif; font-size:clamp(1.8rem,5vw,3.2rem); font-weight:900; background:linear-gradient(150deg,var(--gold-bright),var(--gold),var(--sepia-light)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.1; }
+.subtitle { font-size:1rem; color:var(--sepia-light); font-style:italic; margin-top:0.4rem; }
+
+/* CITY TABS */
+.city-tabs { display:flex; padding:1.2rem 1.5rem 0; border-bottom:1px solid rgba(201,146,42,0.2); }
+.city-tab { font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.1em; padding:0.55rem 1.3rem; border:1px solid rgba(201,146,42,0.3); border-bottom:none; background:transparent; color:var(--sepia-mid); cursor:pointer; transition:all 0.2s; margin-right:4px; position:relative; bottom:-1px; }
+.city-tab.active { background:rgba(201,146,42,0.1); color:var(--gold-bright); border-color:rgba(201,146,42,0.5); border-bottom-color:var(--ink); }
+.city-tab:hover:not(.active) { color:var(--gold); }
+
+/* LOCATION BAR */
+.location-bar { display:flex; gap:0.5rem; overflow-x:auto; padding:1.2rem 1.5rem 0.8rem; scrollbar-width:none; }
+.location-bar::-webkit-scrollbar { display:none; }
+.loc-btn { flex-shrink:0; font-family:'Cinzel',serif; font-size:0.68rem; letter-spacing:0.1em; padding:0.45rem 1rem; border:1px solid rgba(201,146,42,0.35); background:transparent; color:var(--sepia-light); cursor:pointer; transition:all 0.22s; white-space:nowrap; }
+.loc-btn:hover,.loc-btn.active { background:var(--gold); color:var(--ink); border-color:var(--gold); }
+
+/* SCENE DOTS */
+.scene-nav { display:flex; gap:0.5rem; padding:0.8rem 1.5rem 0; }
+.scene-dot { width:8px; height:8px; border:1px solid rgba(201,146,42,0.45); border-radius:50%; cursor:pointer; transition:all 0.2s; }
+.scene-dot.active { background:var(--gold); border-color:var(--gold); }
+
+/* SCENE WRAPPER */
+.scene-wrapper { position:relative; margin:0.8rem 1.5rem; border:1px solid rgba(201,146,42,0.22); overflow:hidden; background:#060402; min-height:320px; }
+
+/* scanline */
+@keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(380px)} }
+.scanline { position:absolute; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,rgba(201,146,42,0.35),transparent); animation:scanline 3.5s linear infinite; pointer-events:none; z-index:20; }
+
+/* viewfinder */
+.viewfinder { position:absolute; inset:12px; border:1px solid rgba(201,146,42,0.45); pointer-events:none; z-index:15; }
+.viewfinder::before,.viewfinder::after,.vf-inner::before,.vf-inner::after { content:''; position:absolute; width:16px; height:16px; border-color:var(--gold-bright); border-style:solid; }
+.viewfinder::before { top:-1px; left:-1px; border-width:2px 0 0 2px; }
+.viewfinder::after  { top:-1px; right:-1px; border-width:2px 2px 0 0; }
+.vf-inner::before   { bottom:-1px; left:-1px; border-width:0 0 2px 2px; }
+.vf-inner::after    { bottom:-1px; right:-1px; border-width:0 2px 2px 0; }
+
+/* HUD */
+.hud-label { position:absolute; font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.14em; color:var(--gold); background:rgba(6,4,2,0.72); padding:0.18rem 0.45rem; pointer-events:none; z-index:16; }
+.hud-tl { top:18px; left:18px; }
+.hud-tr { top:18px; right:18px; border-right:1px solid var(--gold); padding-right:0.5rem; }
+.hud-bl { bottom:18px; left:18px; }
+
+/* video */
+#camVideo { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:none; z-index:1; }
+#camVideo.on { display:block; }
+
+/* fallback bg */
+.fallback-bg { width:100%; min-height:320px; background:linear-gradient(180deg,#2a1e10 0%,#0e0a04 100%); position:relative; }
+.arches { position:absolute; bottom:55px; left:0; right:0; display:flex; opacity:0.16; pointer-events:none; }
+.arch { flex:1; height:85px; border-top:3px solid var(--ash); border-radius:50% 50% 0 0; margin:0 2px; }
+.floor-shadow { position:absolute; bottom:0; left:0; right:0; height:160px; background:linear-gradient(0deg,#0e0a04,transparent); }
+
+/* AR SVG overlay */
+.ar-overlay { position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; }
+@keyframes shimmer { 0%,100%{opacity:0.84} 50%{opacity:0.93} }
+.ar-overlay { animation:shimmer 4s ease-in-out infinite; }
+#sceneSVG { width:100%; height:100%; }
+body:not(.cam-on) #sceneSVG { filter:sepia(0.55) brightness(0.72) contrast(1.1); }
+body.cam-on #sceneSVG { mix-blend-mode:screen; }
+
+/* cam toggle */
+.cam-toggle { position:absolute; bottom:14px; right:14px; z-index:22; background:rgba(6,4,2,0.78); border:1px solid var(--gold); color:var(--gold); font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.14em; padding:0.38rem 0.75rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:all 0.2s; backdrop-filter:blur(4px); }
+.cam-toggle:hover { background:var(--gold); color:var(--ink); }
+
+/* AR slider */
+.ar-ctrl { position:absolute; left:14px; bottom:14px; z-index:22; display:none; align-items:center; gap:0.45rem; }
+body.cam-on .ar-ctrl { display:flex; }
+.ar-ctrl label { font-family:'Cinzel',serif; font-size:0.54rem; letter-spacing:0.12em; color:var(--gold); }
+.ar-ctrl input { width:68px; accent-color:var(--gold); cursor:pointer; }
+
+/* camera notice */
+#camNotice { position:absolute; inset:0; z-index:30; background:rgba(6,4,2,0.96); display:none; flex-direction:column; padding:1.2rem 1.4rem; overflow-y:auto; }
+#camNotice.show { display:flex; }
+.guide-browser { font-family:'Cinzel',serif; font-size:0.6rem; letter-spacing:0.2em; color:var(--sepia-mid); margin-bottom:0.3rem; }
+.guide-title { font-family:'Cinzel',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:1rem; }
+.guide-step { display:flex; align-items:flex-start; gap:0.65rem; margin-bottom:0.72rem; font-size:0.92rem; color:var(--ash); line-height:1.5; }
+.guide-step strong { color:var(--gold-bright); font-style:normal; }
+.step-n { flex-shrink:0; width:20px; height:20px; border:1px solid var(--gold); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Cinzel',serif; font-size:0.62rem; color:var(--gold); margin-top:1px; }
+.guide-reload { margin-top:0.8rem; width:100%; padding:0.65rem; font-family:'Cinzel',serif; font-size:0.72rem; letter-spacing:0.18em; background:var(--gold); border:none; color:var(--ink); cursor:pointer; font-weight:600; }
+.guide-reload:hover { background:var(--gold-bright); }
+
+/* INFO PANEL */
+.info-panel { margin:0 1.5rem; background:rgba(14,10,4,0.55); border:1px solid rgba(201,146,42,0.18); padding:1.3rem 1.4rem; position:relative; overflow:hidden; }
+.info-panel::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:linear-gradient(180deg,var(--gold),transparent); }
+.scene-era { font-family:'Cinzel',serif; font-size:0.62rem; letter-spacing:0.28em; color:var(--gold); margin-bottom:0.35rem; }
+.scene-title { font-family:'Cinzel',serif; font-size:1.3rem; font-weight:600; color:var(--parchment); margin-bottom:0.7rem; line-height:1.3; }
+.scene-text { font-size:0.97rem; line-height:1.75; color:var(--ash); font-style:italic; }
+.scene-text strong { color:var(--gold-bright); font-style:normal; font-weight:500; }
+
+/* GENERATE BTN */
+.gen-btn { display:flex; align-items:center; justify-content:center; gap:0.55rem; width:calc(100% - 3rem); margin:1.3rem 1.5rem 0; padding:0.95rem 2rem; font-family:'Cinzel',serif; font-size:0.75rem; letter-spacing:0.18em; background:transparent; border:1px solid var(--gold); color:var(--gold); cursor:pointer; transition:all 0.28s; position:relative; overflow:hidden; }
+.gen-btn::before { content:''; position:absolute; inset:0; background:var(--gold); transform:translateX(-101%); transition:transform 0.28s ease; }
+.gen-btn:hover::before { transform:translateX(0); }
+.gen-btn:hover { color:var(--ink); }
+.gen-btn span { position:relative; z-index:1; }
+.gen-btn.loading { pointer-events:none; opacity:0.65; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.spinner { width:13px; height:13px; border:2px solid rgba(201,146,42,0.3); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; display:none; }
+.gen-btn.loading .spinner { display:block; }
+.gen-btn.loading .btn-text::after { content:'...'; }
+
+/* AI STORY */
+.ai-story { margin:1.3rem 1.5rem 0; padding:1.3rem; background:rgba(61,43,31,0.28); border:1px solid rgba(201,146,42,0.28); display:none; }
+.ai-story.show { display:block; }
+.ai-label { font-family:'Cinzel',serif; font-size:0.58rem; letter-spacing:0.28em; color:var(--gold); margin-bottom:0.9rem; display:flex; align-items:center; gap:0.5rem; }
+.ai-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(201,146,42,0.45),transparent); }
+.ai-text { font-size:0.97rem; line-height:1.82; color:var(--ash); font-style:italic; white-space:pre-wrap; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.cursor { display:inline-block; width:2px; height:1em; background:var(--gold); vertical-align:middle; margin-left:2px; animation:blink 0.8s infinite; }
+
+/* SCENE FADE */
+@keyframes sceneFade { from{opacity:0} to{opacity:1} }
+.scene-active { animation:sceneFade 0.5s ease; }
+
+/* FOOTER */
+footer { text-align:center; padding:2rem 1.5rem; margin-top:2rem; border-top:1px solid rgba(201,146,42,0.12); font-size:0.7rem; color:var(--sepia-mid); letter-spacing:0.08em; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="year-badge">⟡ SCHWEIZ · ZEITREISE AR ⟡</div>
+  <h1>Zeitreise AR</h1>
+  <p class="subtitle">Augmented Reality · Historische Szenen · Bern & Schwarzenburg</p>
+</header>
+
+<div class="city-tabs">
+  <button class="city-tab active" onclick="selectCity(this,'bern')">🏛 Bern</button>
+  <button class="city-tab" onclick="selectCity(this,'schwarzenburg')">🏰 Schwarzenburg</button>
+</div>
+
+<div class="location-bar" id="locationBar"></div>
+<div class="scene-nav" id="sceneDots"></div>
+
+<div class="scene-wrapper">
+  <div class="scanline"></div>
+  <div class="hud-label hud-tl" id="hudLoc">MÜNSTERPLATZ · BERN</div>
+  <div class="hud-label hud-tr" id="hudYear">ca. 1450 n. Chr.</div>
+  <div class="hud-label hud-bl">AR · ZEITSCHICHT AKTIV</div>
+  <div class="viewfinder"><div class="vf-inner"></div></div>
+
+  <video id="camVideo" autoplay playsinline muted></video>
+
+  <div id="camNotice">
+    <div id="camGuide"></div>
+  </div>
+
+  <div class="fallback-bg" id="fallbackBg">
+    <div class="arches">
+      <div class="arch"></div><div class="arch"></div><div class="arch"></div>
+      <div class="arch"></div><div class="arch"></div><div class="arch"></div>
+      <div class="arch"></div><div class="arch"></div>
+    </div>
+    <div class="floor-shadow"></div>
+  </div>
+
+  <div class="ar-overlay">
+    <svg id="sceneSVG" viewBox="0 0 600 320" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"></svg>
+  </div>
+
+  <div class="ar-ctrl">
+    <label>AR</label>
+    <input type="range" id="arOpacity" min="20" max="95" value="75" oninput="setAROpacity(this.value)">
+  </div>
+
+  <button class="cam-toggle" onclick="toggleCam()">
+    <span>📷</span><span id="camLabel">KAMERA AN</span>
+  </button>
+</div>
+
+<div class="info-panel">
+  <div class="scene-era" id="sceneEra"></div>
+  <div class="scene-title" id="sceneTitle"></div>
+  <div class="scene-text" id="sceneText"></div>
+</div>
+
+<button class="gen-btn" id="genBtn" onclick="generateStory()">
+  <div class="spinner"></div>
+  <span class="btn-text">✦ KI-Zeitreise generieren</span>
+</button>
+
+<div class="ai-story" id="aiStory">
+  <div class="ai-label">KI-ERZÄHLUNG · HISTORISCHE FIKTION</div>
+  <div class="ai-text" id="aiText"></div>
+</div>
+
+<footer>
+  ZEITREISE AR · PROTOTYP v2 · © 2025<br>
+  Quellen: Stadtarchiv Bern · Gemeinde Schwarzenburg · Regionalmuseum Gantrisch · Historisches Lexikon der Schweiz
+</footer>
+
+<script>
+// ===== DATA =====
+const DATA = {
+  bern: {
+    hudCity: 'BERN',
+    locations: [
+      { key:'muensterplatz', label:'Münsterplatz' },
+      { key:'kramgasse',     label:'Kramgasse'     },
+      { key:'marktgasse',    label:'Marktgasse'    },
+      { key:'zytglogge',     label:'Zytglogge'     },
+      { key:'lauben',        label:'Lauben'        },
+    ],
+    scenes: {
+      muensterplatz: [
+        {
+          era:'MITTELALTER · 15. JAHRHUNDERT', year:'ca. 1450 n. Chr.',
+          title:'Wochenmarkt am Münsterplatz',
+          text:`Unter dem grauen Herbsthimmel drängen sich <strong>Bauern aus dem Emmental</strong> mit beladenen Karren um den Brunnen. Der Geruch von frischem Brot, Käse und rohem Fleisch liegt in der Luft. Zunftmeister in langen Mänteln begutachten die Tuchwaren, während Kinder zwischen den Beinen hindurchschlüpfen. Im Hintergrund ragt das <strong>unfertige Münster</strong> in den Himmel.`,
+          draw: drawBernMarkt
+        },
+        {
+          era:'FRÜHE NEUZEIT · 17. JAHRHUNDERT', year:'ca. 1680 n. Chr.',
+          title:'Patrizische Promenade',
+          text:`<strong>Patrizierfamilien</strong> schreiten an der Münsterplattform entlang. Frauen in steifen Rüschenkragen, Männer in Allongeperücken. Ein Stadtschreiber eilt mit Pergamentrollen Richtung Rathaus. Die <strong>Sandsteinfassaden</strong> leuchten im Abendlicht golden.`,
+          draw: drawPatrizier
+        }
+      ],
+      kramgasse: [
+        {
+          era:'MITTELALTER · 14. JAHRHUNDERT', year:'ca. 1380 n. Chr.',
+          title:'Die Krämerläden unter den Lauben',
+          text:`Entlang der Lauben reihen sich die <strong>Krambuden</strong> aneinander: Tücher aus Flandern, Gewürze aus dem Orient, Messer aus Solingen. Ein Gewürzhändler ruft seine Waren aus – <strong>Pfeffer so wertvoll wie Silber</strong>. Die Lauben schützen vor dem Berner Regen.`,
+          draw: drawKram
+        }
+      ],
+      marktgasse: [
+        {
+          era:'SPÄTMITTELALTER · 14. JAHRHUNDERT', year:'ca. 1399 n. Chr.',
+          title:'Pflasterung der Marktgasse',
+          text:`Stadtarbeiter verlegen <strong>runde Steine aus der Aare</strong> – die erste Pflasterung der «Märitgasse». Der Stadtbach wird in Röhren gefasst. Schmiede, Bäcker, Gerber – jedes <strong>Zunftgewerbe</strong> hat seinen festen Platz entlang der Hauptachse.`,
+          draw: drawGasse
+        }
+      ],
+      zytglogge: [
+        {
+          era:'MITTELALTER · 13. JAHRHUNDERT', year:'ca. 1250 n. Chr.',
+          title:'Das alte Westtor',
+          text:`Der <strong>Zytgloggeturm</strong> ist noch ein schlichtes Stadttor – kein Uhrwerk, keine Glocken. Reisende zahlen dem Torwächter die Weggeldgebühr. Die Stadt endet hier: dahinter beginnt das offene Land mit Feldern und Wäldern.`,
+          draw: drawTor
+        }
+      ],
+      lauben: [
+        {
+          era:'MITTELALTER · ALLE EPOCHEN', year:'seit ca. 1200',
+          title:'Sechs Kilometer überdachtes Leben',
+          text:`Die <strong>Lauben von Bern</strong> – nach dem Brand 1405 in Sandstein wiedererrichtet – sind das pulsierende Herz der Stadt. Hier treffen sich Handwerker, Händler, Pilger und Boten. Bei Regen bieten sie Schutz; im Sommer kühlen Schatten. Unter den Bögen schliessen Kaufleute ihre Deals.`,
+          draw: drawLauben
+        }
+      ]
+    }
+  },
+  schwarzenburg: {
+    hudCity: 'SCHWARZENBURG',
+    locations: [
+      { key:'dorfplatz',  label:'Dorfplatz'    },
+      { key:'jakobsweg',  label:'Jakobsweg'    },
+      { key:'grasburg',   label:'Grasburg'     },
+      { key:'roemisch',   label:'Römerstrasse' },
+    ],
+    scenes: {
+      dorfplatz: [
+        {
+          era:'SPÄTMITTELALTER · 15. JAHRHUNDERT', year:'ca. 1412 n. Chr.',
+          title:'Der Savoyische Jahrmarkt',
+          text:`Im Jahr 1412 verlieh <strong>Savoyen drei Jahrmärkte</strong> an Schwarzenburg – das einzige Marktrecht der ganzen Vogtei. Bauern aus dem Gantrischgebiet treiben ihr Vieh auf den Dorfplatz: Kühe, Ziegen, Schweine. <strong>Händler aus Bern und Freiburg</strong> haben Tuchwaren aufgebaut. Der Landvogt beobachtet vom Tor aus.`,
+          draw: drawSchwarzMarkt
+        },
+        {
+          era:'16. JAHRHUNDERT · NACH 1575', year:'ca. 1580 n. Chr.',
+          title:'Unter den Augen des Landvogts',
+          text:`Das neue <strong>Schloss Schwarzenburg</strong>, erbaut 1573–75 mit Steinen der Grasburg, überragt den Dorfplatz. Der Landvogt – abwechselnd Berner und Freiburger – sitzt hier als Richter. <strong>Bauern bringen Dinkel, Hafer, Käse</strong> als Zehntpflicht. Die Ecktürmchen symbolisieren Herrschaft.`,
+          draw: drawSchloss
+        }
+      ],
+      jakobsweg: [
+        {
+          era:'MITTELALTER · 12.–15. JAHRHUNDERT', year:'seit ca. 1200',
+          title:'Pilger auf dem Jakobsweg',
+          text:`Schwarzenburg liegt an der alten <strong>Jakobspilgerroute</strong> von Einsiedeln über Rüeggisberg nach Freiburg. Müde Pilger mit Stab und <strong>Jakobsmuschel</strong> am Hut rasten im Dorf. Eine Herberge bietet Stroh und Suppe gegen ein Gebet. Bei Nebel verschwinden die Wanderer wie Geister.`,
+          draw: drawPilger
+        }
+      ],
+      grasburg: [
+        {
+          era:'HOCHMITTELALTER · 13.–16. JAHRHUNDERT', year:'ca. 1350 n. Chr.',
+          title:'Die Grasburg – Sitz der Herrschaft',
+          text:`Hoch über der <strong>Senseschlucht</strong> thront die Grasburg – erst Reichsvogtei, dann savoyisch, dann bernisch-freiburgisch. Der steile, vereiste Hohlweg war der einzige Zugang. 1575 bauten Bern und Freiburg ein neues Schloss im Dorf; <strong>die Grasburg zerfiel danach rasch</strong>.`,
+          draw: drawGrasburg
+        }
+      ],
+      roemisch: [
+        {
+          era:'RÖMERZEIT · 1.–4. JAHRHUNDERT', year:'ca. 200 n. Chr.',
+          title:'Römerstrasse Aventicum–Thun',
+          text:`Die <strong>römische Durchgangsstrasse</strong> von Aventicum (Avenches) ins Oberland führte durch dieses Gebiet. Im nahen Elisried liegt das Gräberfeld – <strong>99 Gräber</strong> in zwölf Reihen, mit burgundischen Gürtelschnallen aus dem 5.–8. Jahrhundert. Das Land war nie leer.`,
+          draw: drawRoemer
+        }
+      ]
+    }
+  }
+};
+
+// ===== STATE =====
+let city = 'bern';
+let loc  = 'muensterplatz';
+let sceneIdx = 0;
+let camStream = null;
+let camOn = false;
+
+// ===== HELPERS =====
+function currentScenes() { return DATA[city].scenes[loc]; }
+function currentScene()  { return currentScenes()[sceneIdx]; }
+
+// ===== CITY / LOCATION / SCENE =====
+function selectCity(btn, c) {
+  document.querySelectorAll('.city-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  city = c;
+  const firstLoc = DATA[city].locations[0].key;
+  loc = firstLoc;
+  sceneIdx = 0;
+  buildLocationBar();
+  renderScene();
+}
+
+function buildLocationBar() {
+  const bar = document.getElementById('locationBar');
+  bar.innerHTML = '';
+  DATA[city].locations.forEach((l, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'loc-btn' + (l.key === loc ? ' active' : '');
+    btn.textContent = l.label;
+    btn.onclick = () => selectLocation(btn, l.key);
+    bar.appendChild(btn);
+  });
+}
+
+function selectLocation(btn, l) {
+  document.querySelectorAll('.loc-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loc = l;
+  sceneIdx = 0;
+  renderScene();
+}
+
+function renderScene() {
+  const s = currentScene();
+  document.getElementById('sceneEra').textContent   = s.era;
+  document.getElementById('sceneTitle').textContent = s.title;
+  document.getElementById('sceneText').innerHTML    = s.text;
+  document.getElementById('hudYear').textContent    = s.year;
+  document.getElementById('hudLoc').textContent     = loc.toUpperCase().replace('MUENSTERPLATZ','MÜNSTERPLATZ') + ' · ' + DATA[city].hudCity;
+  document.getElementById('aiStory').classList.remove('show');
+
+  const svg = document.getElementById('sceneSVG');
+  svg.classList.remove('scene-active');
+  setTimeout(() => { s.draw(svg); svg.classList.add('scene-active'); }, 80);
+  buildDots();
+}
+
+function buildDots() {
+  const container = document.getElementById('sceneDots');
+  container.innerHTML = '';
+  currentScenes().forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'scene-dot' + (i === sceneIdx ? ' active' : '');
+    d.onclick = () => { sceneIdx = i; renderScene(); };
+    container.appendChild(d);
+  });
+}
+
+// ===== CAMERA =====
+function detectBrowser() {
+  const ua = navigator.userAgent;
+  const isA = /Android/i.test(ua), isI = /iPhone|iPad/i.test(ua);
+  if (/EdgA?\/|Edg\//i.test(ua))      return isA ? 'edge-android' : 'edge-desktop';
+  if (/SamsungBrowser/i.test(ua))     return 'samsung';
+  if (/Chrome/i.test(ua) && isA)      return 'chrome-android';
+  if (/Chrome/i.test(ua) && isI)      return 'chrome-ios';
+  if (/Chrome/i.test(ua))             return 'chrome-desktop';
+  if (/Firefox/i.test(ua))            return 'firefox';
+  if (/Safari/i.test(ua) && isI)      return 'safari-ios';
+  if (/Safari/i.test(ua))             return 'safari-desktop';
+  return 'unknown';
+}
+
+const GUIDES = {
+  'edge-android':   { icon:'🔷', name:'Edge (Android)',   steps:['Tippe auf das <strong>Schloss-Symbol 🔒</strong> in der Adressleiste','Tippe auf <strong>„Berechtigungen"</strong>','Setze <strong>„Kamera"</strong> auf <strong>„Erlauben"</strong>','Lade die Seite neu ↺'] },
+  'edge-desktop':   { icon:'🔷', name:'Edge (Desktop)',    steps:['Klicke auf das <strong>Schloss-Symbol 🔒</strong> in der Adressleiste','Klicke auf <strong>„Berechtigungen für diese Website"</strong>','Setze <strong>„Kamera"</strong> auf <strong>„Erlauben"</strong>','Seite neu laden (F5)'] },
+  'samsung':        { icon:'🔶', name:'Samsung Internet', steps:['Tippe auf <strong>Schloss 🔒</strong> in der Adressleiste','Tippe auf <strong>„Website-Einstellungen"</strong>','Tippe auf <strong>„Kamera" → „Erlauben"</strong>','Seite neu laden ↺'] },
+  'chrome-android': { icon:'🔵', name:'Chrome (Android)', steps:['Tippe auf <strong>Schloss 🔒</strong> in der Adressleiste','Tippe auf <strong>„Berechtigungen"</strong>','Aktiviere <strong>„Kamera"</strong>','Seite neu laden ↺'] },
+  'chrome-ios':     { icon:'🔵', name:'Chrome (iPhone)',  steps:['Öffne <strong>Einstellungen ⚙️ → Chrome</strong>','Aktiviere <strong>„Kamera"</strong>','Kehre zurück und lade die Seite neu'] },
+  'chrome-desktop': { icon:'🔵', name:'Chrome (Desktop)', steps:['Klicke auf <strong>Kamera-Symbol 📷</strong> rechts in der Adressleiste','Wähle <strong>„Immer erlauben"</strong>','Klicke <strong>„Fertig"</strong> und lade neu (F5)'] },
+  'firefox':        { icon:'🦊', name:'Firefox',          steps:['Klicke auf <strong>Schloss 🔒</strong> in der Adressleiste','Klicke auf <strong>„Weitere Informationen"</strong>','Unter Berechtigungen: <strong>„Kamera" → „Erlauben"</strong>','Seite neu laden'] },
+  'safari-ios':     { icon:'🧭', name:'Safari (iPhone)',  steps:['Öffne <strong>Einstellungen ⚙️ → Safari</strong>','Tippe auf <strong>„Kamera" → „Erlauben"</strong>','Kehre zurück und lade die Seite neu'] },
+  'safari-desktop': { icon:'🧭', name:'Safari (Desktop)', steps:['Gehe zu <strong>Safari → Einstellungen → Websites</strong>','Wähle <strong>„Kamera"</strong>','Setze diese Seite auf <strong>„Erlauben"</strong>','Seite neu laden'] },
+  'unknown':        { icon:'📷', name:'Dein Browser',     steps:['Tippe/klicke auf das <strong>Schloss- oder Info-Symbol</strong> in der Adressleiste','Suche nach <strong>„Berechtigungen"</strong> oder <strong>„Website-Einstellungen"</strong>','Setze <strong>„Kamera"</strong> auf <strong>„Erlauben"</strong>','Lade die Seite neu'] },
+};
+
+function showCamGuide(type) {
+  const g = GUIDES[detectBrowser()] || GUIDES['unknown'];
+  let html = `<div class="guide-browser">${g.icon} ${g.name}</div>`;
+  if (type === 'denied') {
+    html += `<div class="guide-title">Kamerazugriff aktivieren</div>`;
+    html += g.steps.map((s,i) => `<div class="guide-step"><span class="step-n">${i+1}</span><span>${s}</span></div>`).join('');
+    html += `<button class="guide-reload" onclick="location.reload()">↺ Seite neu laden</button>`;
+  } else {
+    html += `<div class="guide-title">⚠️ ${type}</div>`;
+  }
+  document.getElementById('camGuide').innerHTML = html;
+  document.getElementById('camNotice').classList.add('show');
+}
+
+async function toggleCam() {
+  camOn ? stopCam() : await startCam();
+}
+
+async function startCam() {
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } } });
+    const v = document.getElementById('camVideo');
+    v.srcObject = camStream;
+    v.classList.add('on');
+    document.getElementById('fallbackBg').style.display = 'none';
+    document.getElementById('camNotice').classList.remove('show');
+    camOn = true;
+    document.body.classList.add('cam-on');
+    document.getElementById('camLabel').textContent = 'KAMERA AUS';
+    setAROpacity(document.getElementById('arOpacity').value);
+  } catch(e) {
+    if (e.name === 'NotAllowedError')   showCamGuide('denied');
+    else if (e.name === 'NotFoundError') showCamGuide('Keine Kamera gefunden');
+    else showCamGuide(e.message);
+  }
+}
+
+function stopCam() {
+  if (camStream) camStream.getTracks().forEach(t => t.stop());
+  const v = document.getElementById('camVideo');
+  v.srcObject = null; v.classList.remove('on');
+  document.getElementById('fallbackBg').style.display = '';
+  camOn = false;
+  document.body.classList.remove('cam-on');
+  document.getElementById('camLabel').textContent = 'KAMERA AN';
+  document.getElementById('sceneSVG').style.opacity = '';
+}
+
+function setAROpacity(v) {
+  if (camOn) document.getElementById('sceneSVG').style.opacity = v/100;
+}
+
+// ===== AI STORY =====
+async function generateStory() {
+  const btn = document.getElementById('genBtn');
+  const box = document.getElementById('aiStory');
+  const txt = document.getElementById('aiText');
+  const s   = currentScene();
+  btn.classList.add('loading');
+  box.classList.remove('show');
+
+  const prompt = `Du bist ein historischer Erzähler für eine Augmented-Reality-App über historische Orte in der Schweiz.
+
+Schreibe eine kurze atmosphärische Erzählung (4–6 Sätze) in der zweiten Person ("Du siehst...", "Du riechst...") für diese Szene:
+
+Stadt/Ort: ${DATA[city].hudCity}
+Ort: ${loc}
+Epoche: ${s.era}
+Szene: ${s.title}
+
+Regionale Details für ${DATA[city].hudCity}:
+${city === 'bern' ? '- Zähringerstadt, Lauben, Aare, Münster, Brunnen, Zünfte, Sandstein' : '- Gantrisch, Sense, Grasburg, Landvogt, Jahrmarkt, Jakobsweg, Voralpen, Dinkel'}
+
+Die Erzählung soll alle Sinne ansprechen, historisch authentisch und poetisch sein. Auf Deutsch.`;
+
+  try {
+    const res  = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{ role:'user', content:prompt }] })
+    });
+    const data = await res.json();
+    const text = data.content?.map(c => c.text||'').join('') || 'Fehler beim Laden.';
+    btn.classList.remove('loading');
+    box.classList.add('show');
+    txt.textContent = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    txt.appendChild(cursor);
+    let i = 0;
+    const chars = text.split('');
+    (function type() { if(i<chars.length){ cursor.before(chars[i++]); setTimeout(type, 16+Math.random()*10); } else cursor.remove(); })();
+  } catch(e) {
+    btn.classList.remove('loading');
+    box.classList.add('show');
+    txt.textContent = 'Verbindungsfehler. Bitte erneut versuchen.';
+  }
+}
+
+// ===== SVG DRAW FUNCTIONS =====
+
+function sky(id, c1, c2) {
+  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="600" height="320" fill="url(#${id})"/>`;
+}
+function figure(cx, cy, cloak='#4a3520', skin='#c4a882') {
+  return `<ellipse cx="${cx}" cy="${cy}" rx="12" ry="15" fill="${cloak}"/><rect x="${cx-11}" y="${cy+14}" width="22" height="38" fill="${cloak}"/><ellipse cx="${cx}" cy="${cy-10}" rx="10" ry="11" fill="${skin}"/>`;
+}
+function torch(cx, cy) {
+  return `<rect x="${cx-3}" y="${cy}" width="5" height="18" fill="#5c3d28"/><circle cx="${cx}" cy="${cy}" r="7" fill="#e8b84b" opacity="0.82"/><circle cx="${cx}" cy="${cy}" r="22" fill="#c9922a" opacity="0.12"/>`;
+}
+
+// BERN
+function drawBernMarkt(svg) {
+  svg.innerHTML = sky('s1','#4a3520','#1a100a') + `
+    <rect x="230" y="20" width="140" height="250" fill="#2d1f12" opacity="0.9"/>
+    <polygon points="300,2 230,22 370,22" fill="#2d1f12"/>
+    <rect x="255" y="50" width="22" height="32" rx="3" fill="#c9922a" opacity="0.28"/>
+    <rect x="317" y="50" width="22" height="32" rx="3" fill="#c9922a" opacity="0.25"/>
+    <rect x="30" y="185" width="95" height="72" fill="#3d2b1f"/>
+    <polygon points="15,185 140,185 130,165 25,165" fill="#5c3d28"/>
+    <rect x="43" y="205" width="22" height="33" fill="#c4a882" opacity="0.75"/>
+    <rect x="72" y="200" width="28" height="38" fill="#e8b84b" opacity="0.38"/>
+    <rect x="415" y="182" width="105" height="76" fill="#3d2b1f"/>
+    <polygon points="398,182 535,182 524,162 408,162" fill="#7a5c3e"/>
+    ${figure(180,210)}${figure(340,218,'#5c3d28')}${figure(285,238,'#4a3520')}
+    <rect x="260" y="216" width="62" height="42" rx="2" fill="#3d2b1f" stroke="#7a5c3e" stroke-width="1"/>
+    <ellipse cx="291" cy="222" rx="22" ry="5" fill="#4a8fa8" opacity="0.38"/>
+    <rect x="95" y="232" width="82" height="26" fill="#2d1f12"/>
+    <circle cx="108" cy="262" r="13" fill="#1a100a" stroke="#7a5c3e" stroke-width="2"/>
+    <circle cx="162" cy="262" r="13" fill="#1a100a" stroke="#7a5c3e" stroke-width="2"/>
+    ${torch(195,158)}${torch(395,153)}`;
+}
+
+function drawPatrizier(svg) {
+  svg.innerHTML = sky('s2','#5a4030','#1a100a') + `
+    <polygon points="0,195 55,128 115,158 195,98 275,138 335,108 415,148 495,103 555,128 600,118 600,200 0,200" fill="#1a100a" opacity="0.58"/>
+    <rect x="0" y="265" width="600" height="10" fill="#4a3520"/>
+    ${Array.from({length:20},(_,i)=>`<rect x="${i*30+5}" y="228" width="5" height="40" fill="#3d2b1f"/>`).join('')}
+    <rect x="0" y="222" width="600" height="8" fill="#5c3d28"/>
+    <ellipse cx="148" cy="190" rx="18" ry="10" fill="#c4a882" opacity="0.45"/>
+    ${figure(148,208,'#2d1f12')}
+    <ellipse cx="218" cy="214" rx="18" ry="5" fill="#c4a882" opacity="0.55"/>
+    ${figure(218,212,'#4a3520')}
+    <rect x="438" y="75" width="12" height="225" fill="#2d1f12"/>
+    <rect x="468" y="75" width="12" height="225" fill="#2d1f12"/>
+    <polygon points="444,75 475,44 506,75" fill="#2d1f12"/>
+    <circle cx="540" cy="95" r="52" fill="#c9922a" opacity="0.1"/>`;
+}
+
+function drawKram(svg) {
+  svg.innerHTML = sky('s3','#3a2818','#0e0804') + `
+    ${Array.from({length:6},(_,i)=>`<path d="M${i*100} 275 L${i*100} 118 Q${i*100+50} 78 ${i*100+100} 118 L${i*100+100} 275" fill="none" stroke="#5c3d28" stroke-width="4"/><rect x="${i*100}" y="275" width="100" height="45" fill="#2d1f12"/>`).join('')}
+    ${Array.from({length:5},(_,i)=>`<rect x="${i*100+12}" y="198" width="74" height="78" fill="#3d2b1f"/><rect x="${i*100+18}" y="210" width="22" height="32" fill="#c4a882" opacity="0.48"/><rect x="${i*100+44}" y="205" width="28" height="36" fill="#8b6914" opacity="0.58"/>`).join('')}
+    <path d="M48 138 Q98 158 148 138" fill="none" stroke="#7a5c3e" stroke-width="3"/>
+    <path d="M198 133 Q248 153 298 133" fill="none" stroke="#5c3d28" stroke-width="3"/>
+    <ellipse cx="318" cy="228" rx="15" ry="20" fill="#8b6914"/>
+    <ellipse cx="342" cy="233" rx="12" ry="17" fill="#c9922a" opacity="0.78"/>
+    ${figure(395,218)}
+    ${Array.from({length:10},(_,i)=>`<ellipse cx="${i*60+30}" cy="295" rx="24" ry="8" fill="#1a100a" stroke="#3d2b1f" stroke-width="1"/>`).join('')}`;
+}
+
+function drawGasse(svg) {
+  svg.innerHTML = sky('s4','#3a2818','#1a100a') + `
+    <polygon points="178,178 422,178 600,320 0,320" fill="#2d1f12"/>
+    <polygon points="218,178 382,178 500,320 100,320" fill="#1a100a" opacity="0.38"/>
+    <rect x="0" y="48" width="155" height="272" fill="#2d1f12"/>
+    <rect x="445" y="48" width="155" height="272" fill="#2d1f12"/>
+    ${Array.from({length:4},(_,i)=>`<rect x="18" y="${58+i*52}" width="32" height="36" rx="2" fill="#c9922a" opacity="0.22"/>`).join('')}
+    ${Array.from({length:4},(_,i)=>`<rect x="458" y="${58+i*52}" width="32" height="36" rx="2" fill="#c9922a" opacity="0.18"/>`).join('')}
+    ${figure(198,268,'#3d2b1f')}
+    <ellipse cx="158" cy="305" rx="18" ry="10" fill="#3d2b1f"/>
+    <ellipse cx="238" cy="308" rx="15" ry="8" fill="#3d2b1f"/>
+    <rect x="258" y="278" width="82" height="12" rx="2" fill="#1a3a4a" opacity="0.75"/>`;
+}
+
+function drawTor(svg) {
+  svg.innerHTML = sky('s5','#2a1a10','#0e0804') + `
+    <rect x="208" y="18" width="184" height="285" fill="#1a100a" stroke="#3d2b1f" stroke-width="2"/>
+    ${Array.from({length:7},(_,i)=>`<rect x="${210+i*26}" y="8" width="20" height="18" fill="#1a100a" stroke="#3d2b1f" stroke-width="1"/>`).join('')}
+    <path d="M258 312 L258 158 Q300 128 342 158 L342 312" fill="#0e0804"/>
+    ${Array.from({length:5},(_,i)=>`<rect x="${261+i*17}" y="158" width="3" height="154" fill="#3d2b1f" opacity="0.75"/>`).join('')}
+    ${Array.from({length:4},(_,i)=>`<rect x="261" y="${173+i*36}" width="81" height="3" fill="#3d2b1f" opacity="0.75"/>`).join('')}
+    ${torch(248,168)}${torch(352,168)}
+    <rect x="362" y="228" width="22" height="72" fill="#0e0804"/>
+    <ellipse cx="373" cy="222" rx="12" ry="13" fill="#1a100a"/>
+    <line x1="378" y1="168" x2="374" y2="300" stroke="#3d2b1f" stroke-width="2"/>
+    <polygon points="378,168 374,183 386,183" fill="#5c3d28"/>`;
+}
+
+function drawLauben(svg) {
+  svg.innerHTML = sky('s6','#4a3020','#1a100a') + `
+    <polygon points="0,0 600,0 500,198 100,198" fill="#1a0f08" opacity="0.88"/>
+    ${Array.from({length:6},(_,i)=>`<line x1="${i*100+50}" y1="0" x2="${i*80+100}" y2="198" stroke="#3d2b1f" stroke-width="3"/>`).join('')}
+    <polygon points="100,198 500,198 600,320 0,320" fill="#2d1f12"/>
+    ${Array.from({length:6},(_,i)=>`<rect x="${i*100+88}" y="198" width="22" height="122" fill="#3d2b1f"/>`).join('')}
+    ${Array.from({length:5},(_,i)=>`<rect x="${i*100+110}" y="218" width="76" height="102" fill="#1a0f08"/><rect x="${i*100+120}" y="233" width="27" height="36" rx="2" fill="#c9922a" opacity="${0.18+i*0.04}"/>`).join('')}
+    ${figure(248,268)}${figure(348,273,'#4a3520')}
+    ${torch(198,182)}`;
+}
+
+// SCHWARZENBURG
+function hills(id) {
+  return `<polygon points="0,175 80,138 165,162 260,118 360,148 460,122 560,142 600,132 600,215 0,215" fill="#1a1008" opacity="0.72"/><polygon points="0,198 100,168 205,182 325,158 445,172 565,163 600,168 600,240 0,240" fill="#0e0a04" opacity="0.8"/>`;
+}
+
+function drawSchwarzMarkt(svg) {
+  svg.innerHTML = sky('sb1','#3a2c1a','#1a100a') + hills('sb1') + `
+    <rect y="240" width="600" height="80" fill="#1a0f08"/>
+    <rect x="28" y="183" width="98" height="62" fill="#3d2b1f"/>
+    <polygon points="12,183 142,183 132,162 22,162" fill="#5c3d28"/>
+    <rect x="40" y="202" width="24" height="34" fill="#c4a882" opacity="0.72"/>
+    <rect x="72" y="197" width="30" height="40" fill="#e8b84b" opacity="0.36"/>
+    <rect x="378" y="198" width="145" height="52" fill="none" stroke="#5c3d28" stroke-width="2"/>
+    ${Array.from({length:5},(_,i)=>`<line x1="${383+i*27}" y1="198" x2="${383+i*27}" y2="250" stroke="#4a3520" stroke-width="2"/>`).join('')}
+    <ellipse cx="432" cy="232" rx="27" ry="13" fill="#2d1f12"/>
+    <rect x="416" y="235" width="9" height="18" fill="#2d1f12"/><rect x="440" y="235" width="9" height="18" fill="#2d1f12"/>
+    <ellipse cx="457" cy="228" rx="13" ry="10" fill="#2d1f12"/>
+    <ellipse cx="492" cy="235" rx="16" ry="10" fill="#3d2b1f"/>
+    ${figure(198,208)}${figure(278,213,'#5c3d28')}
+    <ellipse cx="560" cy="202" rx="15" ry="18" fill="#2d1f12"/>
+    <rect x="543" y="219" width="32" height="47" fill="#1a100a"/>
+    <ellipse cx="560" cy="192" rx="12" ry="13" fill="#c4a882"/>
+    <line x1="560" y1="178" x2="556" y2="266" stroke="#3d2b1f" stroke-width="2"/>`;
+}
+
+function drawSchloss(svg) {
+  svg.innerHTML = sky('sb2','#4a3520','#1a100a') + `
+    <rect x="168" y="78" width="264" height="222" fill="#2d1f12" stroke="#3d2b1f" stroke-width="2"/>
+    <polygon points="158,78 442,78 422,38 178,38" fill="#1a100a" stroke="#3d2b1f" stroke-width="1"/>
+    <polygon points="158,78 178,38 168,28 148,78" fill="#1a100a"/>
+    <polygon points="442,78 422,38 432,28 452,78" fill="#1a100a"/>
+    <rect x="408" y="98" width="52" height="182" fill="#3d2b1f" stroke="#4a3520" stroke-width="1"/>
+    <polygon points="408,98 460,98 460,78 434,63 408,78" fill="#2d1f12"/>
+    <rect x="118" y="198" width="37" height="82" fill="#2d1f12" stroke="#3d2b1f" stroke-width="1"/>
+    <polygon points="113,198 160,198 136,178" fill="#1a100a"/>
+    <rect x="478" y="198" width="37" height="82" fill="#2d1f12" stroke="#3d2b1f" stroke-width="1"/>
+    <polygon points="473,198 520,198 496,178" fill="#1a100a"/>
+    <rect x="118" y="268" width="397" height="15" fill="#3d2b1f"/>
+    ${Array.from({length:3},(_,i)=>`<rect x="${193+i*82}" y="108" width="36" height="46" rx="3" fill="#c9922a" opacity="0.23"/>`).join('')}
+    ${Array.from({length:3},(_,i)=>`<rect x="${193+i*82}" y="173" width="36" height="46" rx="3" fill="#c9922a" opacity="0.18"/>`).join('')}
+    <rect x="263" y="218" width="72" height="62" fill="#0e0a04"/>
+    <path d="M263 268 L263 233 Q299 213 335 233 L335 268" fill="#0e0a04"/>
+    <ellipse cx="88" cy="268" rx="12" ry="15" fill="#4a3520"/>
+    <rect x="78" y="282" width="22" height="38" fill="#3d2b1f"/>
+    <ellipse cx="88" cy="258" rx="10" ry="11" fill="#c4a882"/>
+    <ellipse cx="96" cy="273" rx="13" ry="10" fill="#5c3d28"/>
+    ${torch(163,118)}`;
+}
+
+function drawPilger(svg) {
+  svg.innerHTML = sky('sb3','#2a2010','#0e0a04') + `
+    <polygon points="0,158 98,108 198,138 298,98 398,128 498,106 598,122 600,200 0,200" fill="#1a1208" opacity="0.58"/>
+    <polygon points="0,178 148,153 298,163 448,146 600,158 600,250 0,250" fill="#0e0a04" opacity="0.7"/>
+    <polygon points="238,320 362,320 342,198 258,198" fill="#2d1f12"/>
+    <ellipse cx="148" cy="173" rx="92" ry="20" fill="#2a2010" opacity="0.38"/>
+    <ellipse cx="452" cy="163" rx="82" ry="18" fill="#2a2010" opacity="0.28"/>
+    <ellipse cx="258" cy="217" rx="12" ry="15" fill="#3d2b1f"/>
+    <rect x="247" y="231" width="23" height="46" fill="#2d1f12"/>
+    <ellipse cx="258" cy="207" rx="10" ry="11" fill="#c4a882"/>
+    <ellipse cx="258" cy="209" rx="17" ry="5" fill="#3d2b1f"/>
+    <ellipse cx="258" cy="207" rx="10" ry="9" fill="#4a3520"/>
+    <line x1="273" y1="213" x2="269" y2="277" stroke="#5c3d28" stroke-width="3"/>
+    <path d="M266 212 Q274 206 277 212 Q274 218 266 212" fill="#c4a882" opacity="0.78"/>
+    <ellipse cx="350" cy="243" rx="9" ry="11" fill="#4a3520"/>
+    <rect x="342" y="253" width="16" height="34" fill="#3d2b1f"/>
+    <ellipse cx="350" cy="235" rx="8" ry="9" fill="#c4a882"/>
+    <line x1="358" y1="240" x2="355" y2="287" stroke="#5c3d28" stroke-width="2"/>
+    <rect x="153" y="193" width="5" height="47" fill="#3d2b1f"/>
+    <rect x="142" y="206" width="29" height="5" fill="#3d2b1f"/>`;
+}
+
+function drawGrasburg(svg) {
+  svg.innerHTML = sky('sb4','#2a1a0e','#0a0604') + `
+    <polygon points="0,278 600,278 600,320 0,320" fill="#0a1520" opacity="0.92"/>
+    ${Array.from({length:8},(_,i)=>`<ellipse cx="${i*76+38}" cy="305" rx="29" ry="7" fill="#1a3a4a" opacity="0.48"/>`).join('')}
+    <polygon points="148,178 250,98 352,118 422,78 482,138 502,278 98,278" fill="#1a100a"/>
+    <polygon points="198,178 282,128 342,148 382,118 422,158 432,278 178,278" fill="#140c08"/>
+    <rect x="268" y="38" width="82" height="132" fill="#1a100a" stroke="#3d2b1f" stroke-width="2"/>
+    ${Array.from({length:5},(_,i)=>`<rect x="${270+i*16}" y="28" width="13" height="16" fill="#1a100a" stroke="#3d2b1f" stroke-width="1"/>`).join('')}
+    <rect x="298" y="58" width="22" height="36" rx="2" fill="#c9922a" opacity="0.2"/>
+    <rect x="298" y="108" width="22" height="30" rx="2" fill="#c9922a" opacity="0.15"/>
+    <rect x="198" y="118" width="72" height="92" fill="#140c08" stroke="#2d1f12" stroke-width="1"/>
+    <rect x="348" y="108" width="72" height="102" fill="#140c08" stroke="#2d1f12" stroke-width="1"/>
+    <polygon points="78,278 132,278 157,158 103,158" fill="#0e0a04"/>
+    <rect x="368" y="93" width="15" height="42" fill="#0e0804"/>
+    <ellipse cx="376" cy="88" rx="9" ry="10" fill="#1a100a"/>
+    <line x1="382" y1="73" x2="378" y2="135" stroke="#2d1f12" stroke-width="2"/>
+    <polygon points="382,73 378,88 388,88" fill="#3d2b1f"/>
+    ${torch(268,53)}
+    <circle cx="522" cy="58" r="24" fill="#c4a882" opacity="0.13"/>
+    <circle cx="532" cy="53" r="20" fill="#0a0604" opacity="0.8"/>`;
+}
+
+function drawRoemer(svg) {
+  svg.innerHTML = sky('sb5','#4a3828','#1a100a') + hills('sb5') + `
+    <rect y="240" width="600" height="80" fill="#1a0f08"/>
+    <polygon points="198,320 402,320 372,158 228,158" fill="#2d2218"/>
+    ${Array.from({length:6},(_,i)=>`<line x1="${233+i*22}" y1="320" x2="${230+i*22}" y2="158" stroke="#3d3020" stroke-width="1" opacity="0.45"/>`).join('')}
+    ${Array.from({length:8},(_,i)=>`<line x1="200" y1="${320-i*22}" x2="400" y2="${320-i*22}" stroke="#3d3020" stroke-width="1" opacity="0.38"/>`).join('')}
+    <ellipse cx="278" cy="228" rx="13" ry="16" fill="#3d2b1f"/>
+    <rect x="266" y="243" width="25" height="44" fill="#4a3520"/>
+    <ellipse cx="278" cy="218" rx="11" ry="12" fill="#c4a882"/>
+    <ellipse cx="278" cy="213" rx="14" ry="7" fill="#8b6914"/>
+    <rect x="265" y="207" width="28" height="8" rx="2" fill="#8b6914"/>
+    <rect x="256" y="238" width="19" height="29" rx="3" fill="#5c3d28" stroke="#8b6914" stroke-width="1"/>
+    <line x1="294" y1="193" x2="289" y2="287" stroke="#5c3d28" stroke-width="2"/>
+    <polygon points="294,193 290,207 300,207" fill="#8b6914"/>
+    ${figure(378,238,'#4a3520')}
+    <rect x="393" y="253" width="62" height="21" fill="#2d1f12"/>
+    <circle cx="405" cy="277" r="11" fill="#1a100a" stroke="#5c3d28" stroke-width="2"/>
+    <circle cx="444" cy="277" r="11" fill="#1a100a" stroke="#5c3d28" stroke-width="2"/>
+    <ellipse cx="424" cy="253" rx="9" ry="14" fill="#8b6914" opacity="0.78"/>
+    <rect x="128" y="223" width="13" height="36" fill="#3d2b1f"/>
+    <rect x="122" y="220" width="25" height="8" fill="#4a3520"/>
+    <circle cx="502" cy="78" r="42" fill="#c9922a" opacity="0.1"/>`;
+}
+
+// ===== INIT =====
+buildLocationBar();
+renderScene();
+</script>
+</body>
+</html>
